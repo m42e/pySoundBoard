@@ -1,0 +1,40 @@
+{
+    "ui": {
+        "size": [800,480],
+        "rows": 5,
+        "columns": 6,
+        "spacing": 20,
+        "fadein": 1000,
+        "fadeout": 3000,
+        "colors":{
+            "music":
+            {
+                "ready": [160,212,104],
+                "playing": [140,193,82],
+                "off":[150, 150, 150]
+            },
+            "effect":
+            {
+                "ready": [237, 85, 101],
+                "off":[150, 150, 150]
+            }
+        }
+    },
+    "tabs": [
+
+    ],
+    "sounds":[
+        {
+            "name": "asylum",
+            "sound": "the-asylum-1-1.mp3",
+            "type": "music"
+        },
+        {
+            "name": "scream",
+            "sound": "219864__estefaniabonnin__scream.wav",
+            "type": "effect"
+        }
+
+    ],
+    "_":{}
+}

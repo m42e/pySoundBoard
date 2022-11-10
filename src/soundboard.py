@@ -3,17 +3,14 @@
 # being i row number and j column number (starting at 0)
 
 import pygame
+import json
 from pygame.locals import *
 
 # variables
-size = [500, 500]
-rows = 7  # 10 max
-spacing = int(size[0]/(1+2*rows))
-fadein = 1000
-fadeout = 3000
-offset12 = spacing + 12
-leftB = 1
-rightB = 3
+size = [800, 480]
+
+with open('config.json') as cf:
+    config = json.load(cf)
 
 # colors
 red = (237, 85, 101)
@@ -36,66 +33,52 @@ pygame.mixer.pre_init(44100, -16, 2, 512)  # fixes delay in play
 pygame.init()
 
 # init channels
-pygame.mixer.set_num_channels(rows**2)
+pygame.mixer.set_num_channels(len(config['sounds']))
 
 # set screen width/height and caption
 screen = pygame.display.set_mode(size, pygame.NOFRAME)
 pygame.display.set_caption('pySoundBoard')
 
 # init fonts
-fontLogo = pygame.font.Font('res/Kathen.otf', int(spacing/2))
-fontObj = pygame.font.Font('res/Hyperspace.otf', int(spacing/2.5))
-fontnames = pygame.font.Font('res/pragmata.otf', 12)
+#fontObj = pygame.font.Font('res/Hyperspace.otf', int(spacing/2.5))
+#fontnames = pygame.font.Font('res/pragmata.otf', 12)
+
+def get_button_size(config, extra=0):
+    button_x = (config['ui']['size'][0] - (config['ui']['columns']+1)*config['ui']['spacing'])/config['ui']['columns']
+    button_y = (config['ui']['size'][1] - (config['ui']['rows']+1)*config['ui']['spacing'])/config['ui']['rows']
+    return button_x+extra, button_y+extra
+
+def get_button_coordinates(config, i):
+    bx, by = get_button_size(config)
+    offset_x = bx + config['ui']['spacing']
+    offset_y = by + config['ui']['spacing']
+
+    x = (i%config['ui']['columns'])*offset_x + config['ui']['spacing']
+    y = (i//config['ui']['columns'])*offset_y + config['ui']['spacing']
+    return (x,y)
 
 
-def readpaths():
-    '''read rows**2 lines from paths.txt file
-    and create a list of paths'''
-    paths = []
-    with open("paths.txt") as myfile:
-        paths = [next(myfile) for x in range(rows**2)]
-    # remove white space
-    paths = [line.rstrip('\n') for line in paths]
-    return paths
-
-
-def makebuttons():
+def makebuttons(config):
     '''generate sound button objects according to the number of
     rows'''
     data = []
-    n = 0
-    for j in range(rows):
-        for i in range(rows):
-            data.append({
-                'soundchannel': pygame.mixer.Channel(n),
-                'soundobj': pygame.mixer.Sound(paths[n]),
-                'coord': (spacing*(2*i+1), spacing*(2*j+1)),
-                'size': (spacing, spacing),
-                'path': paths[n],
-                'rectobj': pygame.Rect(spacing*(2*i+1), spacing*(2*j+1), spacing, spacing),
-                'textobj': fontObj.render(str(n+1), False, black),
-                'textname': fontnames.render(paths[n][7:][:-4].upper(), True, white),
-                'textcoords': (spacing*(2*i+1.3), spacing*(2*j+1.3)),
-                'namecoords': (spacing*(2*i+1), spacing*(2*j+2.2)),
-                'color': grey,
-                'loop': False
-            })
-            n += 1
+    for j, sound in enumerate(config['sounds']):
+        data.append({
+            'soundchannel': pygame.mixer.Channel(j),
+            'soundobj': pygame.mixer.Sound(sound['sound']),
+            'coord': get_button_coordinates(config, j),
+            'size': get_button_size(config),
+            'path': sound['sound'],
+            'rectobj': pygame.Rect(*get_button_coordinates(config, j), *get_button_size(config)),
+            'color': grey,
+            'loop': False
+        })
     return data
 
 
-def makelogo():
-    # draw logo according to the size of the buttons
-    logo = fontLogo.render('pySoundboard', True, blue)
-    logoRect = logo.get_rect()
-    logoRect.midright = (spacing*(2*rows), spacing/2)
-    return (logo, logoRect)
-
 
 # make the initial set of objects
-paths = readpaths()
-data = makebuttons()
-logo = makelogo()
+buttons = makebuttons(config)
 
 # initialize clock. used later in the loop.
 clock = pygame.time.Clock()
@@ -113,35 +96,18 @@ while done == False:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             done = True
-        elif event.type == KEYDOWN:
-            if event.key == K_ESCAPE:
-                done = True
-            if event.key == K_f:
-                pygame.mixer.fadeout(3000)
-            elif event.key == K_p:
-                if paused == False:
-                    pygame.mixer.pause()
-                    paused = True
-                else:
-                    pygame.mixer.unpause()
-                    paused = False
-            elif event.key == K_s:
-                pygame.mixer.stop()
-            elif event.key == K_r:
-                paths = readpaths()
-                data = makebuttons()
-        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == leftB:
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             pos = pygame.mouse.get_pos()
             for elem in data:
                 if elem['rectobj'].collidepoint(pos):
                     if elem['soundchannel'].get_busy():
                         elem['soundchannel'].stop()
                         pygame.draw.rect(screen, red, (elem['coord'][0]-6,
-                                                       elem['coord'][1]-6, offset12, offset12), 5)
+                                                       elem['coord'][1]-6, *get_button_size(config, 12)), 5)
                     else:
                         elem['soundchannel'].play(elem['soundobj'])
                         pygame.draw.rect(screen, red, (elem['coord'][0]-6,
-                                                       elem['coord'][1]-6, offset12, offset12), 5)
+                                                       elem['coord'][1]-6, *get_button_size(config, 12)), 5)
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == rightB:
             pos = pygame.mouse.get_pos()
             for elem in data:
@@ -149,12 +115,12 @@ while done == False:
                     if elem['soundchannel'].get_busy():
                         elem['soundchannel'].fadeout(fadeout)
                         pygame.draw.rect(screen, red, (elem['coord'][0]-6,
-                                                       elem['coord'][1]-6, offset12, offset12), 5)
+                                                       elem['coord'][1]-6, *get_button_size(config, 12)), 5)
                     else:
                         elem['soundchannel'].play(
                             elem['soundobj'], fade_ms=fadein)
                         pygame.draw.rect(screen, red, (elem['coord'][0]-6,
-                                                       elem['coord'][1]-6, offset12, offset12), 5)
+                                                       elem['coord'][1]-6, *get_button_size(config, 12)), 5)
     # write game logic here
     pos = pygame.mouse.get_pos()
     for elem in data:
@@ -167,13 +133,10 @@ while done == False:
                 elem['color'] = green
         if elem['rectobj'].collidepoint(pos):
             pygame.draw.rect(screen, orange, (elem['coord'][0]-6,
-                                              elem['coord'][1]-6, offset12, offset12), 1)
+                                              elem['coord'][1]-6, *get_button_size(config, 12)), 1)
     # write draw code here
-    screen.blit(logo[0], logo[1])
     for elem in data:
         pygame.draw.rect(screen, elem['color'], elem['rectobj'])
-        screen.blit(elem['textobj'], elem['textcoords'])
-        screen.blit(elem['textname'], elem['namecoords'])
 
     # display what’s drawn. this might change.
     pygame.display.update()
